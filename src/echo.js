@@ -16,12 +16,12 @@
 
   var callback = function () {};
 
-  var offset, poll, delay, useDebounce, unload;
+  var offset, poll, delay, useDebounce, unload, mobileMQBreakpoint;
 
   var isHidden = function (element) {
     return (element.offsetParent === null);
   };
-  
+
   var inView = function (element, view) {
     if (isHidden(element)) {
       return false;
@@ -29,6 +29,23 @@
 
     var box = element.getBoundingClientRect();
     return (box.right >= view.l && box.bottom >= view.t && box.left <= view.r && box.top <= view.b);
+  };
+
+  var isMobile = function () {
+    var width = root.innerWidth || document.documentElement.clientWidth;
+    return width < mobileMQBreakpoint;
+  };
+
+  var isRetina = function () {
+    return window.devicePixelRatio > 1;
+  };
+
+  var mobileSuffix = function () {
+    return isMobile() ? '-mob' : '';
+  };
+
+  var retinaSuffix = function () {
+    return isRetina() ? '-retina' : '';
   };
 
   var debounceOrThrottle = function () {
@@ -58,6 +75,7 @@
     };
     delay = optionToInt(opts.throttle, 250);
     useDebounce = opts.debounce !== false;
+    mobileMQBreakpoint = opts.mobileMQBreakpoint || 768;
     unload = !!opts.unload;
     callback = opts.callback || callback;
     echo.render();
@@ -71,7 +89,11 @@
   };
 
   echo.render = function () {
-    var nodes = document.querySelectorAll('img[data-echo], [data-echo-background]');
+    var nodes = document.querySelectorAll('img[data-echo], ' +
+                                             '[data-echo-retina], ' +
+                                             '[data-echo-mob], ' +
+                                             '[data-echo-mob-retina], ' +
+                                             '[data-echo-background]');
     var length = nodes.length;
     var src, elem;
     var view = {
@@ -89,14 +111,16 @@
         }
 
         if (elem.getAttribute('data-echo-background') !== null) {
-          elem.style.backgroundImage = "url(" + elem.getAttribute('data-echo-background') + ")";
-        }
-        else {
-          elem.src = elem.getAttribute('data-echo');
+          elem.style.backgroundImage = 'url(' + elem.getAttribute('data-echo-background') + ')';
+        } else {
+          elem.src = elem.getAttribute('data-echo' + mobileSuffix() + retinaSuffix());
         }
 
         if (!unload) {
           elem.removeAttribute('data-echo');
+          elem.removeAttribute('data-echo-retina');
+          elem.removeAttribute('data-echo-mob');
+          elem.removeAttribute('data-echo-mob-retina');
           elem.removeAttribute('data-echo-background');
         }
 
@@ -105,7 +129,7 @@
       else if (unload && !!(src = elem.getAttribute('data-echo-placeholder'))) {
 
         if (elem.getAttribute('data-echo-background') !== null) {
-          elem.style.backgroundImage = "url(" + src + ")";
+          elem.style.backgroundImage = 'url(' + src + ')';
         }
         else {
           elem.src = src;
