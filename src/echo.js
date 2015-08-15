@@ -40,11 +40,11 @@
     return window.devicePixelRatio > 1;
   };
 
-  var mobileSuffix = function () {
+  var getMobileSuffix = function () {
     return isMobile() ? '-mob' : '';
   };
 
-  var retinaSuffix = function () {
+  var getRetinaSuffix = function () {
     return isRetina() ? '-retina' : '';
   };
 
@@ -57,6 +57,14 @@
       echo.render();
       poll = null;
     }, delay);
+  };
+
+  var getSource = function (elem) {
+    var srcDataAttr = 'data-echo' + getMobileSuffix() + getRetinaSuffix();
+
+    return elem.getAttribute(srcDataAttr) ?
+              elem.getAttribute(srcDataAttr) :
+              elem.getAttribute('data-echo');
   };
 
   echo.init = function (opts) {
@@ -113,7 +121,7 @@
         if (elem.getAttribute('data-echo-background') !== null) {
           elem.style.backgroundImage = 'url(' + elem.getAttribute('data-echo-background') + ')';
         } else {
-          elem.src = elem.getAttribute('data-echo' + mobileSuffix() + retinaSuffix());
+          elem.src = getSource(elem);
         }
 
         if (!unload) {
