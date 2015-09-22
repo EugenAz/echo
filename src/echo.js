@@ -1,3 +1,4 @@
+/*! echo-js-extended v1.7.4 | (c) 2015 @toddmotto | https://github.com/toddmotto/echo */
 (function (root, factory) {
   if (typeof define === 'function' && define.amd) {
     define(function() {
@@ -13,6 +14,10 @@
   'use strict';
 
   var echo = {};
+
+  var echoStack = {}; // src: Array( Image, Image, ... )
+
+  var echoStackPinger;
 
   var callback = function () {};
 
@@ -96,53 +101,93 @@
     }
   };
 
+  function pinger() {
+    var temp;
+
+    echoStackPinger = setInterval(function () {
+      for (var src in echoStack) {
+        temp = new Image();
+        temp.onload = onLoadSuccess.bind(temp, src);
+        temp.src = src;
+      }
+    }, 1500);
+  }
+
+  function processImage(src, elem) {
+    elem.src = src;
+
+    if (!unload) {
+      elem.removeAttribute('data-echo');
+      elem.removeAttribute('data-echo-retina');
+      elem.removeAttribute('data-echo-mob');
+      elem.removeAttribute('data-echo-mob-retina');
+    }
+
+    callback(elem, 'load');
+  }
+
+  function onLoadSuccess(src, elem) {
+    var elems;
+    if (elem.tagName === 'IMG') {
+      processImage(src, elem);
+    } else {
+      elems = echoStack[src];
+
+      elems.forEach(function (elem) {
+        processImage(src, elem);
+      });
+
+      delete echoStack[src];
+
+      if (!Object.keys(echoStack).length) {
+        clearInterval(echoStackPinger);
+      }
+
+      elems = null;
+    }
+  }
+
+  function onLoadError(src, elem) {
+    echoStack[src] = echoStack[src] || [];
+    if (!~echoStack[src].indexOf(elem)) {
+      echoStack[src].push(elem);
+    }
+
+    if (!echoStackPinger) {
+      pinger();
+    }
+  }
+
   echo.render = function () {
     var nodes = document.querySelectorAll('img[data-echo], ' +
                                              '[data-echo-retina], ' +
                                              '[data-echo-mob], ' +
-                                             '[data-echo-mob-retina], ' +
-                                             '[data-echo-background]');
+                                             '[data-echo-mob-retina]');
     var length = nodes.length;
-    var src, elem;
+    var src, elem, temp;
     var view = {
       l: 0 - offset.l,
       t: 0 - offset.t,
       b: (root.innerHeight || document.documentElement.clientHeight) + offset.b,
       r: (root.innerWidth || document.documentElement.clientWidth) + offset.r
     };
+
     for (var i = 0; i < length; i++) {
       elem = nodes[i];
       if (inView(elem, view)) {
-
         if (unload) {
           elem.setAttribute('data-echo-placeholder', elem.src);
         }
 
-        if (elem.getAttribute('data-echo-background') !== null) {
-          elem.style.backgroundImage = 'url(' + elem.getAttribute('data-echo-background') + ')';
-        } else {
-          elem.src = getSource(elem);
-        }
+        src = getSource(elem);
 
-        if (!unload) {
-          elem.removeAttribute('data-echo');
-          elem.removeAttribute('data-echo-retina');
-          elem.removeAttribute('data-echo-mob');
-          elem.removeAttribute('data-echo-mob-retina');
-          elem.removeAttribute('data-echo-background');
-        }
+        temp = new Image();
+        temp.onerror = onLoadError.bind(temp, src, elem);
+        temp.onload = onLoadSuccess.bind(temp, src, elem);
 
-        callback(elem, 'load');
-      }
-      else if (unload && !!(src = elem.getAttribute('data-echo-placeholder'))) {
-
-        if (elem.getAttribute('data-echo-background') !== null) {
-          elem.style.backgroundImage = 'url(' + src + ')';
-        }
-        else {
-          elem.src = src;
-        }
-
+        temp.src = src;
+      } else if (unload && !!(src = elem.getAttribute('data-echo-placeholder'))) {
+        elem.src = src;
         elem.removeAttribute('data-echo-placeholder');
         callback(elem, 'unload');
       }
